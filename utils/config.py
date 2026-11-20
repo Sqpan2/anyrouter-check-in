@@ -30,7 +30,7 @@ class ProviderConfig:
 			for item in self.waf_cookie_names:
 				name = '' if not item or not isinstance(item, str) else item.strip()
 				if not name:
-					print(f'[WARNING] Found invalid WAF cookie name: {item}')
+					print(f'⚠️ Found invalid WAF cookie name: {item}')
 					continue
 
 				required_waf_cookies.add(name)
@@ -115,7 +115,7 @@ class AppConfig:
 				providers_data = json.loads(providers_str)
 
 				if not isinstance(providers_data, dict):
-					print('[WARNING] PROVIDERS must be a JSON object, ignoring custom providers')
+					print('⚠️ PROVIDERS must be a JSON object, ignoring custom providers')
 					return cls(providers=providers)
 
 				# 解析自定义 providers,会覆盖默认配置
@@ -127,16 +127,14 @@ class AppConfig:
 							defaults=providers.get(name),
 						)
 					except Exception as e:
-						print(f'[WARNING] Failed to parse provider "{name}": {e}, skipping')
+						print(f'⚠️ Failed to parse provider "{name}": {e}, skipping')
 						continue
 
-				print(f'[INFO] Loaded {len(providers_data)} custom provider(s) from PROVIDERS environment variable')
+				print(f'ℹ️ Loaded {len(providers_data)} custom provider(s) from PROVIDERS environment variable')
 			except json.JSONDecodeError as e:
-				print(
-					f'[WARNING] Failed to parse PROVIDERS environment variable: {e}, using default configuration only'
-				)
+				print(f'⚠️ Failed to parse PROVIDERS environment variable: {e}, using default configuration only')
 			except Exception as e:
-				print(f'[WARNING] Error loading PROVIDERS: {e}, using default configuration only')
+				print(f'⚠️ Error loading PROVIDERS: {e}, using default configuration only')
 
 		return cls(providers=providers)
 

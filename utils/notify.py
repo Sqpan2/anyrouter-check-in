@@ -1,3 +1,4 @@
+import html
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -135,7 +136,7 @@ class NotificationKit:
 		if not self.telegram_bot_token or not self.telegram_chat_id:
 			raise ValueError('Telegram Bot Token or Chat ID not configured')
 
-		message = f'<b>{title}</b>\n\n{content}'
+		message = f'<b>{html.escape(title)}</b>\n\n{html.escape(content)}'
 		data = {'chat_id': self.telegram_chat_id, 'text': message, 'parse_mode': 'HTML'}
 		url = f'https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage'
 		self._post_json('Telegram', url, data)

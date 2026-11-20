@@ -215,11 +215,11 @@ async def launch_login_context(settings: BrowserLoginSettings, *, use_proxy: boo
 	if proxy:
 		launch_kwargs['proxy'] = proxy
 		if is_debug_enabled():
-			print(f'[INFO] Browser proxy enabled: {proxy["server"]}')
+			print(f'ℹ️ Browser proxy enabled: {proxy["server"]}')
 		else:
-			print('[INFO] Browser proxy enabled')
+			print('ℹ️ Browser proxy enabled')
 	elif use_proxy:
-		print('[WARN] Provider requires proxy but CHECKIN_PROXY_URL is not set')
+		print('⚠️ Provider requires proxy but CHECKIN_PROXY_URL is not set')
 
 	if settings.persist_profile:
 		from cloakbrowser import launch_persistent_context_async
@@ -264,10 +264,10 @@ async def save_login_screenshot(
 	try:
 		await page.screenshot(path=str(path), full_page=True, timeout=15_000)
 		_pending_notify_screenshots.append(path)
-		print(f'[INFO] Screenshot saved: {path}')
+		print(f'ℹ️ Screenshot saved: {path}')
 		return path
 	except Exception as exc:
-		print(f'[WARN] Failed to save screenshot ({label}): {exc}')
+		print(f'⚠️ Failed to save screenshot ({label}): {exc}')
 		return None
 
 
@@ -292,7 +292,7 @@ async def wait_for_site_ready(page: Page, timeout_ms: int = WAF_READY_TIMEOUT_MS
 		await asyncio.sleep(3)
 	closed = await dismiss_popups(page)
 	if closed:
-		print(f'[INFO] Dismissed {closed} popup dialog(s)')
+		print(f'ℹ️ Dismissed {closed} popup dialog(s)')
 
 
 async def _wait_for_optional_load_state(page: Page, state: str, timeout_ms: int) -> bool:
@@ -300,7 +300,7 @@ async def _wait_for_optional_load_state(page: Page, state: str, timeout_ms: int)
 		await page.wait_for_load_state(state, timeout=timeout_ms)
 		return True
 	except Exception as exc:  # nosec B110
-		debug_print(f'[INFO] Optional load state "{state}" not reached within {timeout_ms}ms: {exc}')
+		debug_print(f'ℹ️ Optional load state "{state}" not reached within {timeout_ms}ms: {exc}')
 		return False
 
 
@@ -334,17 +334,17 @@ async def navigate_login_page(
 	attempt_timeout = min(timeout_ms, 60_000)
 
 	try:
-		print(f'[INFO] Warming up {base_url} before login')
+		print(f'ℹ️ Warming up {base_url} before login')
 		await page.goto(base_url, wait_until='load', timeout=attempt_timeout)
 		await _settle_page(page, 3, 15_000)
 		closed = await dismiss_popups(page)
 		if closed:
-			print(f'[INFO] Dismissed {closed} popup dialog(s) during warmup')
+			print(f'ℹ️ Dismissed {closed} popup dialog(s) during warmup')
 	except Exception as exc:
-		print(f'[WARN] Warmup navigation failed: {exc}')
+		print(f'⚠️ Warmup navigation failed: {exc}')
 
 	for attempt in range(3):
-		print(f'[INFO] Navigating login page (attempt {attempt + 1}/3): {login_url}')
+		print(f'ℹ️ Navigating login page (attempt {attempt + 1}/3): {login_url}')
 		await page.goto(login_url, wait_until='load', timeout=attempt_timeout)
 		await _settle_page(page, 5, 20_000)
 
@@ -353,7 +353,7 @@ async def navigate_login_page(
 			if await page.evaluate(_LOGIN_SHELL_READY_JS):
 				return
 
-		print(f'[WARN] Login page shell not ready on attempt {attempt + 1}')
+		print(f'⚠️ Login page shell not ready on attempt {attempt + 1}')
 		await _log_login_page_state(page)
 		if provider and account_name:
 			await save_login_screenshot(page, provider, account_name, f'login-shell-attempt-{attempt + 1}')
@@ -444,7 +444,7 @@ async def verify_browser_login(page: Page, console_url: str, timeout_ms: int) ->
 
 	page.on('response', on_response)
 	try:
-		print(f'[INFO] Verifying login via {console_url} and {USER_SELF_API_SUFFIX}')
+		print(f'ℹ️ Verifying login via {console_url} and {USER_SELF_API_SUFFIX}')
 		await page.goto(console_url, wait_until='load', timeout=min(timeout_ms, 60_000))
 		try:
 			await page.wait_for_load_state('networkidle', timeout=20_000)
@@ -463,16 +463,16 @@ async def verify_browser_login(page: Page, console_url: str, timeout_ms: int) ->
 		if is_debug_enabled():
 			user_id = captured_profile.get('id')
 			username = captured_profile.get('username', '')
-			print(f'[INFO] Login verified via {USER_SELF_API_SUFFIX}: id={user_id}, username={username}')
+			print(f'ℹ️ Login verified via {USER_SELF_API_SUFFIX}: id={user_id}, username={username}')
 		else:
-			print('[INFO] Login verified')
+			print('ℹ️ Login verified')
 		return captured_profile
 
 	if CONSOLE_PATH in page.url.lower():
-		print(f'[WARN] Reached {CONSOLE_PATH} but {USER_SELF_API_SUFFIX} returned no user profile')
+		print(f'⚠️ Reached {CONSOLE_PATH} but {USER_SELF_API_SUFFIX} returned no user profile')
 	else:
-		debug_print(f'[WARN] Login verification failed: current URL={page.url}')
-		print('[WARN] Login verification failed')
+		debug_print(f'⚠️ Login verification failed: current URL={page.url}')
+		print('⚠️ Login verification failed')
 	return None
 
 
@@ -606,7 +606,7 @@ async def _log_login_page_state(page: Page) -> None:
 			};
 		}"""
 	)
-	debug_print(f'[INFO] Login page state: {state}')
+	debug_print(f'ℹ️ Login page state: {state}')
 
 
 async def _open_email_login_form(
@@ -666,7 +666,7 @@ async def _open_email_login_form(
 	if remaining_ms > 0 and await _wait_for_username_input(page, remaining_ms):
 		return
 
-	debug_print(f'[INFO] Login page URL: {page.url}')
+	debug_print(f'ℹ️ Login page URL: {page.url}')
 	await _log_login_page_state(page)
 	if provider and account_name:
 		await save_login_screenshot(page, provider, account_name, 'email-form-timeout')

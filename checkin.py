@@ -95,7 +95,7 @@ async def get_waf_cookies_with_browser(
 	use_proxy: bool = False,
 ):
 	"""使用浏览器获取 WAF cookies"""
-	print(f'[PROCESSING] {account_name}: Starting browser to get WAF cookies...')
+	print(f'🔄 {account_name}: Starting browser to get WAF cookies...')
 
 	launch_kwargs: dict = {'headless': True}
 	proxy = get_playwright_proxy(use_proxy=use_proxy)
@@ -106,7 +106,7 @@ async def get_waf_cookies_with_browser(
 	try:
 		page = await browser.new_page()
 		await prepare_browser_page(page)
-		print(f'[PROCESSING] {account_name}: Access login page to get initial cookies...')
+		print(f'🔄 {account_name}: Access login page to get initial cookies...')
 
 		await page.goto(login_url, wait_until='domcontentloaded')
 		await wait_for_waf_ready(page)
@@ -120,21 +120,21 @@ async def get_waf_cookies_with_browser(
 			if cookie_name in required_cookies and cookie_value is not None:
 				waf_cookies[cookie_name] = cookie_value
 
-		print(f'[INFO] {account_name}: Got {len(waf_cookies)} WAF cookies')
+		print(f'ℹ️ {account_name}: Got {len(waf_cookies)} WAF cookies')
 
 		missing_cookies = [c for c in required_cookies if c not in waf_cookies]
 
 		if missing_cookies:
-			print(f'[FAILED] {account_name}: Missing WAF cookies: {missing_cookies}')
+			print(f'❌ {account_name}: Missing WAF cookies: {missing_cookies}')
 			await browser.close()
 			return None
 
-		print(f'[SUCCESS] {account_name}: Successfully got all WAF cookies')
+		print(f'✅ {account_name}: Successfully got all WAF cookies')
 		await browser.close()
 		return waf_cookies
 
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Error occurred while getting WAF cookies: {e}')
+		print(f'❌ {account_name}: Error occurred while getting WAF cookies: {e}')
 		await browser.close()
 		return None
 
@@ -147,7 +147,7 @@ async def login_with_credentials(
 	password: str,
 ) -> BrowserLoginResult | None:
 	"""使用邮箱密码通过浏览器登录，返回 cookies 与拦截到的 api user id。"""
-	print(f'[PROCESSING] {account_name}: Logging in with email/password...')
+	print(f'🔄 {account_name}: Logging in with email/password...')
 
 	login_url = f'{provider_config.domain}{provider_config.login_path}'
 	settings = load_browser_login_settings(
@@ -158,20 +158,19 @@ async def login_with_credentials(
 	timeout_ms = settings.wait_timeout_ms
 
 	debug_print(
-		f'[INFO] {account_name}: Browser profile={settings.profile_dir}, '
+		f'ℹ️ {account_name}: Browser profile={settings.profile_dir}, '
 		f'persist={settings.persist_profile}, headless={settings.headless}, '
 		f'humanize={settings.humanize}, timeout={timeout_ms}ms'
 	)
 
 	print(
-		f'[INFO] {account_name}: Provider proxy={"enabled" if provider_config.use_proxy else "disabled"} '
-		f'({provider_name})'
+		f'ℹ️ {account_name}: Provider proxy={"enabled" if provider_config.use_proxy else "disabled"} ({provider_name})'
 	)
 
 	try:
 		context = await launch_login_context(settings, use_proxy=provider_config.use_proxy)
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Browser launch failed: {e}')
+		print(f'❌ {account_name}: Browser launch failed: {e}')
 		return None
 
 	page = None
@@ -188,7 +187,7 @@ async def login_with_credentials(
 
 		if not await is_logged_in(page):
 			if await has_session_cookie(page):
-				print(f'[WARN] {account_name}: Stale session cookie on login page, forcing email login')
+				print(f'⚠️ {account_name}: Stale session cookie on login page, forcing email login')
 			await save_login_screenshot(page, provider_name, account_name, 'before-email-login')
 			await login_with_email_form(
 				page,
@@ -199,16 +198,16 @@ async def login_with_credentials(
 				account_name=account_name,
 			)
 		else:
-			print(f'[INFO] {account_name}: Browser profile already logged in')
+			print(f'ℹ️ {account_name}: Browser profile already logged in')
 
 		console_url = f'{provider_config.domain}/console'
 		user_profile = await verify_browser_login(page, console_url, timeout_ms)
 		if not user_profile:
 			cookies = await context.cookies()
 			cookie_names = [c.get('name') for c in cookies if c.get('name')]
-			print(f'[FAILED] {account_name}: Login failed - /api/user/self not verified')
-			debug_print(f'[INFO] {account_name}: Current URL: {page.url}')
-			debug_print(f'[INFO] {account_name}: Got cookies: {cookie_names}')
+			print(f'❌ {account_name}: Login failed - /api/user/self not verified')
+			debug_print(f'ℹ️ {account_name}: Current URL: {page.url}')
+			debug_print(f'ℹ️ {account_name}: Got cookies: {cookie_names}')
 			await save_login_screenshot(page, provider_name, account_name, 'not-authenticated')
 			await context.close()
 			return None
@@ -219,7 +218,7 @@ async def login_with_credentials(
 		}
 		api_user = str(user_profile['id']) if user_profile.get('id') is not None else None
 
-		success_msg = f'[SUCCESS] {account_name}: Login successful, got {len(all_cookies)} cookies'
+		success_msg = f'✅ {account_name}: Login successful, got {len(all_cookies)} cookies'
 		if is_debug_enabled() and api_user:
 			success_msg += f', api_user={api_user}'
 		print(success_msg)
@@ -227,7 +226,7 @@ async def login_with_credentials(
 		return BrowserLoginResult(cookies=all_cookies, api_user=api_user)
 
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Error during login: {e}')
+		print(f'❌ {account_name}: Error during login: {e}')
 		if page is not None:
 			await save_login_screenshot(page, provider_name, account_name, 'login-error')
 		await context.close()
@@ -240,17 +239,26 @@ def get_user_info(client, headers, user_info_url: str):
 		response = client.get(user_info_url, headers=headers, timeout=30)
 
 		if response.status_code == 200:
-			data = response.json()
-			if data.get('success'):
-				user_data = data.get('data', {})
-				quota = round(user_data.get('quota', 0) / 500000, 2)
-				used_quota = round(user_data.get('used_quota', 0) / 500000, 2)
+			try:
+				data = response.json()
+			except ValueError:
+				content_type = response.headers.get('content-type', 'unknown')
+				snippet = ' '.join(response.text[:120].split())
 				return {
-					'success': True,
-					'quota': quota,
-					'used_quota': used_quota,
-					'display': f':money: Current balance: ${quota}, Used: ${used_quota}',
+					'success': False,
+					'error': f'Failed to get user info: non-JSON response ({content_type}): {snippet}',
 				}
+			if not data.get('success'):
+				return {'success': False, 'error': f'Failed to get user info: {data.get("message", "unknown reason")}'}
+			user_data = data.get('data', {})
+			quota = round(user_data.get('quota', 0) / 500000, 2)
+			used_quota = round(user_data.get('used_quota', 0) / 500000, 2)
+			return {
+				'success': True,
+				'quota': quota,
+				'used_quota': used_quota,
+				'display': f'💰 Current balance: ${quota}, Used: ${used_quota}',
+			}
 		return {'success': False, 'error': f'Failed to get user info: HTTP {response.status_code}'}
 	except Exception as e:
 		return {'success': False, 'error': f'Failed to get user info: {str(e)[:50]}...'}
@@ -269,17 +277,17 @@ async def prepare_cookies(account_name: str, provider_config, user_cookies: dict
 			use_proxy=provider_config.use_proxy,
 		)
 		if not waf_cookies:
-			print(f'[FAILED] {account_name}: Unable to get WAF cookies')
+			print(f'❌ {account_name}: Unable to get WAF cookies')
 			return None
 	else:
-		print(f'[INFO] {account_name}: Bypass WAF not required, using user cookies directly')
+		print(f'ℹ️ {account_name}: Bypass WAF not required, using user cookies directly')
 
 	return {**waf_cookies, **user_cookies}
 
 
 def execute_check_in(client, account_name: str, provider_config, headers: dict):
 	"""执行签到请求"""
-	print(f'[NETWORK] {account_name}: Executing check-in')
+	print(f'🔗 {account_name}: Executing check-in')
 
 	checkin_headers = headers.copy()
 	checkin_headers.update({'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'})
@@ -287,38 +295,38 @@ def execute_check_in(client, account_name: str, provider_config, headers: dict):
 	sign_in_url = f'{provider_config.domain}{provider_config.sign_in_path}'
 	response = client.post(sign_in_url, headers=checkin_headers, timeout=30)
 
-	print(f'[RESPONSE] {account_name}: Response status code {response.status_code}')
+	print(f'📡 {account_name}: Response status code {response.status_code}')
 
 	if response.status_code == 200:
 		try:
 			result = response.json()
 			if result.get('ret') == 1 or result.get('code') == 0 or result.get('success'):
-				print(f'[SUCCESS] {account_name}: Check-in successful!')
+				print(f'✅ {account_name}: Check-in successful!')
 				return True
 			else:
 				error_msg = result.get('msg', result.get('message', 'Unknown error'))
 				already_checked_keywords = ['已经签到', '已签到', '重复签到', 'already checked', 'already signed']
 				if any(keyword in error_msg.lower() for keyword in already_checked_keywords):
-					print(f'[SUCCESS] {account_name}: Already checked in today')
+					print(f'✅ {account_name}: Already checked in today')
 					return True
-				print(f'[FAILED] {account_name}: Check-in failed - {error_msg}')
+				print(f'❌ {account_name}: Check-in failed - {error_msg}')
 				return False
 		except json.JSONDecodeError:
 			if 'success' in response.text.lower():
-				print(f'[SUCCESS] {account_name}: Check-in successful!')
+				print(f'✅ {account_name}: Check-in successful!')
 				return True
 			else:
-				print(f'[FAILED] {account_name}: Check-in failed - Invalid response format')
+				print(f'❌ {account_name}: Check-in failed - Invalid response format')
 				return False
 	else:
-		print(f'[FAILED] {account_name}: Check-in failed - HTTP {response.status_code}')
+		print(f'❌ {account_name}: Check-in failed - HTTP {response.status_code}')
 		return False
 
 
 def format_check_in_notification(detail: dict) -> str:
 	"""格式化签到通知消息"""
 	lines = [
-		f'[CHECK-IN] {detail["name"]}',
+		f'📝 {detail["name"]}',
 		'  ━━━━━━━━━━━━━━━━━━━━',
 		'  签到前',
 		f'     余额: ${detail["before_quota"]:.2f}  |  累计消耗: ${detail["before_used"]:.2f}',
@@ -353,21 +361,21 @@ def format_check_in_notification(detail: dict) -> str:
 async def check_in_account(account: AccountConfig, account_index: int, app_config: AppConfig):
 	"""为单个账号执行签到操作"""
 	account_name = account.get_display_name(account_index)
-	print(f'\n[PROCESSING] Starting to process {account_name}')
+	print(f'\n🔄 Starting to process {account_name}')
 
 	provider_config = app_config.get_provider(account.provider)
 	if not provider_config:
-		print(f'[FAILED] {account_name}: Provider "{account.provider}" not found in configuration')
+		print(f'❌ {account_name}: Provider "{account.provider}" not found in configuration')
 		return False, None, None
 
-	print(f'[INFO] {account_name}: Using provider "{account.provider}" ({provider_config.domain})')
+	print(f'ℹ️ {account_name}: Using provider "{account.provider}" ({provider_config.domain})')
 
 	# 邮箱密码优先
 	all_cookies = None
 	resolved_api_user: str | None = None
 	auth_method = None
 	if account.has_login_credentials():
-		print(f'[INFO] {account_name}: Attempting email/password login (priority)...')
+		print(f'ℹ️ {account_name}: Attempting email/password login (priority)...')
 		assert account.email is not None and account.password is not None
 		login_result = await login_with_credentials(
 			account_name,
@@ -381,12 +389,12 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 			resolved_api_user = login_result.api_user
 			auth_method = 'email/password'
 		else:
-			print(f'[FAILED] {account_name}: Email/password login failed, will not use stale session cookies')
+			print(f'❌ {account_name}: Email/password login failed, will not use stale session cookies')
 			return False, None, None
 	else:
 		user_cookies = parse_cookies(account.cookies)
 		if not user_cookies:
-			print(f'[FAILED] {account_name}: Invalid configuration format')
+			print(f'❌ {account_name}: Invalid configuration format')
 			return False, None, None
 		all_cookies = await prepare_cookies(account_name, provider_config, user_cookies)
 		auth_method = 'session cookies'
@@ -394,7 +402,7 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 	if not all_cookies:
 		return False, None, None
 
-	print(f'[AUTH] {account_name}: Using auth method -> {auth_method}')
+	print(f'🔑 {account_name}: Using auth method -> {auth_method}')
 
 	return run_check_in_requests(
 		all_cookies,
@@ -422,11 +430,11 @@ def run_check_in_requests(
 		if proxy_url:
 			client_kwargs['proxy'] = proxy_url
 			if is_debug_enabled():
-				print(f'[INFO] {account_name}: HTTP client proxy enabled: {proxy_url}')
+				print(f'ℹ️ {account_name}: HTTP client proxy enabled: {proxy_url}')
 			else:
-				print(f'[INFO] {account_name}: HTTP client proxy enabled')
+				print(f'ℹ️ {account_name}: HTTP client proxy enabled')
 		elif use_proxy:
-			print(f'[WARN] {account_name}: Provider requires proxy but CHECKIN_PROXY_URL is not set')
+			print(f'⚠️ {account_name}: Provider requires proxy but CHECKIN_PROXY_URL is not set')
 
 		with httpx.Client(**client_kwargs) as client:
 			client.cookies.update(all_cookies)
@@ -462,46 +470,46 @@ def run_check_in_requests(
 
 			user_info_after = get_user_info(client, headers, user_info_url)
 			if user_info_after and user_info_after.get('success'):
-				print(f'[INFO] {account_name}: Check-in completed automatically (triggered by user info request)')
+				print(f'ℹ️ {account_name}: Check-in completed automatically (triggered by user info request)')
 				return True, user_info_before, user_info_after
 			error = user_info_after.get('error', 'Unknown error') if user_info_after else 'Unknown error'
-			print(f'[FAILED] {account_name}: Auto check-in failed - {error}')
+			print(f'❌ {account_name}: Auto check-in failed - {error}')
 			return False, user_info_before, user_info_after
 
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Error occurred during check-in process - {str(e)[:50]}...')
+		print(f'❌ {account_name}: Error occurred during check-in process - {str(e)[:50]}...')
 		return False, None, None
 
 
 async def main():
 	"""主函数"""
 	if is_debug_enabled():
-		print('[INFO] DEBUG_MODE enabled')
+		print('ℹ️ DEBUG_MODE enabled')
 		proxy_server = os.getenv('CHECKIN_PROXY_URL', '').strip()
 		if proxy_server:
-			print(f'[INFO] Proxy endpoint available: {proxy_server} (enabled per provider use_proxy)')
+			print(f'ℹ️ Proxy endpoint available: {proxy_server} (enabled per provider use_proxy)')
 		else:
-			print('[INFO] CHECKIN_PROXY_URL not set; providers with use_proxy=true will run without proxy')
+			print('ℹ️ CHECKIN_PROXY_URL not set; providers with use_proxy=true will run without proxy')
 	else:
-		print('[INFO] Debug mode disabled (set DEBUG_MODE=true to enable screenshots and verbose logs)')
+		print('ℹ️ Debug mode disabled (set DEBUG_MODE=true to enable screenshots and verbose logs)')
 
-	print('[SYSTEM] AnyRouter.top multi-account auto check-in script started')
-	print(f'[TIME] Execution time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+	print('🤖 AnyRouter.top multi-account auto check-in script started')
+	print(f'📅 Execution time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
 
 	app_config = AppConfig.load_from_env()
-	print(f'[INFO] Loaded {len(app_config.providers)} provider configuration(s)')
+	print(f'ℹ️ Loaded {len(app_config.providers)} provider configuration(s)')
 	if is_debug_enabled():
 		for provider_name, provider in sorted(app_config.providers.items()):
-			print(f'[INFO] Provider "{provider_name}": use_proxy={provider.use_proxy}')
+			print(f'ℹ️ Provider "{provider_name}": use_proxy={provider.use_proxy}')
 
 	accounts = load_accounts_config()
 	if not accounts:
-		error_msg = '[FAILED] Unable to load account configuration, program exits'
+		error_msg = '❌ Unable to load account configuration, program exits'
 		print(error_msg)
 		notify.push_message('AnyRouter Check-in Alert', error_msg, msg_type='text')
 		sys.exit(1)
 
-	print(f'[INFO] Found {len(accounts)} account configurations')
+	print(f'ℹ️ Found {len(accounts)} account configurations')
 
 	last_balance_hash = load_balance_hash()
 
@@ -526,7 +534,7 @@ async def main():
 				should_notify_this_account = True
 				need_notify = True
 				account_name = account.get_display_name(i)
-				print(f'[NOTIFY] {account_name} failed, will send notification')
+				print(f'🔔 {account_name} failed, will send notification')
 
 			if user_info_after and user_info_after.get('success'):
 				current_quota = user_info_after['quota']
@@ -560,7 +568,7 @@ async def main():
 
 			if should_notify_this_account:
 				account_name = account.get_display_name(i)
-				status = '[SUCCESS]' if success else '[FAIL]'
+				status = '✅' if success else '❌'
 				account_result = f'{status} {account_name}'
 				if user_info_after and user_info_after.get('success'):
 					account_result += f'\n{user_info_after["display"]}'
@@ -570,22 +578,22 @@ async def main():
 
 		except Exception as e:
 			account_name = account.get_display_name(i)
-			print(f'[FAILED] {account_name} processing exception: {e}')
+			print(f'❌ {account_name} processing exception: {e}')
 			need_notify = True
-			notification_content.append(f'[FAIL] {account_name} exception: {str(e)[:50]}...')
+			notification_content.append(f'❌ {account_name} exception: {str(e)[:50]}...')
 
 	current_balance_hash = generate_balance_hash(current_balances) if current_balances else None
 	if current_balance_hash:
 		if last_balance_hash is None:
 			balance_changed = True
 			need_notify = True
-			print('[NOTIFY] First run detected, will send notification with current balances')
+			print('🔔 First run detected, will send notification with current balances')
 		elif current_balance_hash != last_balance_hash:
 			balance_changed = True
 			need_notify = True
-			print('[NOTIFY] Balance changes detected, will send notification')
+			print('🔔 Balance changes detected, will send notification')
 		else:
-			print('[INFO] No balance changes detected')
+			print('ℹ️ No balance changes detected')
 
 	if balance_changed:
 		for i, account in enumerate(accounts):
@@ -602,26 +610,26 @@ async def main():
 
 	if need_notify and notification_content:
 		summary = [
-			'[STATS] Check-in result statistics:',
-			f'[SUCCESS] Success: {success_count}/{total_count}',
-			f'[FAIL] Failed: {total_count - success_count}/{total_count}',
+			'📊 Check-in result statistics:',
+			f'✅ Success: {success_count}/{total_count}',
+			f'❌ Failed: {total_count - success_count}/{total_count}',
 		]
 
 		if success_count == total_count:
-			summary.append('[SUCCESS] All accounts check-in successful!')
+			summary.append('🎉 All accounts check-in successful!')
 		elif success_count > 0:
-			summary.append('[WARN] Some accounts check-in successful')
+			summary.append('⚠️ Some accounts check-in successful')
 		else:
-			summary.append('[ERROR] All accounts check-in failed')
+			summary.append('❌ All accounts check-in failed')
 
-		time_info = f'[TIME] Execution time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
+		time_info = f'📅 Execution time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
 
 		notify_content = '\n\n'.join([time_info, '\n'.join(notification_content), '\n'.join(summary)])
 		screenshot_paths = take_pending_screenshots() if is_debug_enabled() else []
 		if screenshot_paths:
 			github_run_id = os.getenv('GITHUB_RUN_ID', '').strip()
 			github_repo = os.getenv('GITHUB_REPOSITORY', '').strip()
-			screenshot_hint = f'[SCREENSHOT] {len(screenshot_paths)} debug screenshot(s) saved'
+			screenshot_hint = f'📸 {len(screenshot_paths)} debug screenshot(s) saved'
 			if github_run_id and github_repo:
 				run_url = f'https://github.com/{github_repo}/actions/runs/{github_run_id}'
 				screenshot_hint += f'. Download artifact `checkin-screenshots-{github_run_id}` from: {run_url}'
@@ -631,9 +639,9 @@ async def main():
 
 		print(notify_content)
 		notify.push_message('AnyRouter Check-in Alert', notify_content, msg_type='text')
-		print('[NOTIFY] Notification sent due to failures or balance changes')
+		print('🔔 Notification sent due to failures or balance changes')
 	else:
-		print('[INFO] All accounts successful and no balance changes detected, notification skipped')
+		print('ℹ️ All accounts successful and no balance changes detected, notification skipped')
 
 	sys.exit(0 if success_count > 0 else 1)
 
@@ -643,10 +651,10 @@ def run_main():
 	try:
 		asyncio.run(main())
 	except KeyboardInterrupt:
-		print('\n[WARNING] Program interrupted by user')
+		print('\n⚠️ Program interrupted by user')
 		sys.exit(1)
 	except Exception as e:
-		print(f'\n[FAILED] Error occurred during program execution: {e}')
+		print(f'\n❌ Error occurred during program execution: {e}')
 		sys.exit(1)
 
 
