@@ -41,6 +41,8 @@ from utils.proxy import get_playwright_proxy, get_proxy_server
 load_dotenv()
 
 BALANCE_HASH_FILE = 'balance_hash.txt'
+# agentrouter 的 WAF 会对同一出口 IP 的连续请求触发 JS 挑战，账号之间需要间隔
+AGENTROUTER_INTERVAL_SECONDS = 60
 
 
 def load_balance_hash():
@@ -520,9 +522,15 @@ async def main():
 	account_check_in_details = {}
 	need_notify = False
 	balance_changed = False
+	agentrouter_processed = False
 
 	for i, account in enumerate(accounts):
 		account_key = f'account_{i + 1}'
+		if account.provider == 'agentrouter':
+			if agentrouter_processed:
+				print(f'⏳ Waiting {AGENTROUTER_INTERVAL_SECONDS}s before next agentrouter account')
+				await asyncio.sleep(AGENTROUTER_INTERVAL_SECONDS)
+			agentrouter_processed = True
 		try:
 			success, user_info_before, user_info_after = await check_in_account(account, i, app_config)
 			if success:
