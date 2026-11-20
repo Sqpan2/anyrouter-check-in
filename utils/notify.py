@@ -174,9 +174,9 @@ class NotificationKit:
 		for name, func in notifications:
 			try:
 				func()
-				print(f'[{name}]: Message push successful!')
+				print(f'📤 {name}: Message push successful!')
 			except Exception as e:
-				print(f'[{name}]: Message push failed! Reason: {str(e)}')
+				print(f'❌ {name}: Message push failed! Reason: {str(e)}')
 
 
 notify = NotificationKit()
